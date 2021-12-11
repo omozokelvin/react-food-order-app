@@ -1,12 +1,41 @@
 import Card from 'components/UI/Card';
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import classes from './AvailableMeals.module.css';
 import MealItem from './MealItem/MealItem';
 
+const actions = Object.freeze({
+  LOADED: 'LOADED',
+  STOP_LOADING: 'STOP_LOADING',
+  ERROR: 'ERROR',
+});
+
+const initialMealsState = {
+  meals: [],
+  isLoading: true,
+  httpError: null,
+};
+
+const mealsStateReducer = (state, action) => {
+  if (action.type === actions.LOADED) {
+    return { ...state, meals: action.payload };
+  }
+
+  if (action.type === actions.STOP_LOADING) {
+    return { ...state, isLoading: false };
+  }
+
+  if (action.type === actions.ERROR) {
+    return { ...state, httpError: action.payload };
+  }
+
+  return state;
+};
+
 const AvailableMeals = () => {
-  const [meals, setMeals] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [httpError, setHttpError] = useState();
+  const [mealsState, dispatch] = useReducer(
+    mealsStateReducer,
+    initialMealsState
+  );
 
   useEffect(() => {
     const fetchMeals = async () => {
@@ -29,17 +58,22 @@ const AvailableMeals = () => {
         });
       }
 
-      setMeals(loadedMeals);
-      setIsLoading(false);
+      dispatch({
+        type: actions.LOADED,
+        payload: loadedMeals,
+      });
+
+      dispatch({ type: actions.STOP_LOADING });
     };
 
     fetchMeals().catch((error) => {
-      setIsLoading(false);
-      setHttpError(error.message);
+      dispatch({ type: actions.STOP_LOADING });
+
+      dispatch({ type: actions.ERROR, payload: error.message });
     });
   }, []);
 
-  if (isLoading) {
+  if (mealsState.isLoading) {
     return (
       <section className={classes.mealsLoading}>
         <p>Loading...</p>
@@ -47,15 +81,15 @@ const AvailableMeals = () => {
     );
   }
 
-  if (httpError) {
+  if (mealsState.httpError) {
     return (
       <section className={classes.mealsError}>
-        <p>{httpError}</p>
+        <p>{mealsState.httpError}</p>
       </section>
     );
   }
 
-  const mealsList = meals.map(({ id, name, description, price }) => (
+  const mealsList = mealsState.meals.map(({ id, name, description, price }) => (
     <MealItem
       id={id}
       key={id}
